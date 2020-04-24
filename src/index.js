@@ -4,6 +4,7 @@ import webpack from 'webpack';
 import sources from 'webpack-sources';
 
 import validateOptions from 'schema-utils';
+import { SyncWaterfallHook } from 'tapable';
 
 import CssDependency from './CssDependency';
 import schema from './plugin-options.json';
@@ -23,6 +24,8 @@ const REGEXP_CONTENTHASH = /\[contenthash(?::(\d+))?\]/i;
 const REGEXP_NAME = /\[name\]/i;
 const REGEXP_PLACEHOLDERS = /\[(name|id|chunkhash)\]/g;
 const DEFAULT_FILENAME = '[name].css';
+
+const compilerHookMap = new WeakMap();
 
 class CssDependencyTemplate {
   apply() {}
@@ -125,6 +128,17 @@ class MiniCssExtractPlugin {
         );
       }
     }
+  }
+
+  static getCompilerHooks(compiler) {
+    let hooks = compilerHookMap.get(compiler);
+    if (!hooks) {
+      hooks = {
+        customize: new SyncWaterfallHook(['source']),
+      };
+      compilerHookMap.set(compiler, hooks);
+    }
+    return hooks;
   }
 
   apply(compiler) {
@@ -376,6 +390,9 @@ class MiniCssExtractPlugin {
                         '}',
                       ])
                     : '',
+                  MiniCssExtractPlugin.getCompilerHooks(
+                    compiler
+                  ).customize.call(''),
                   'var head = document.getElementsByTagName("head")[0];',
                   'head.appendChild(linkTag);',
                 ]),
